@@ -5,22 +5,27 @@ var readFile = function (name) {
     return fs.readFileSync('test/examples/' + name + '.js', 'utf8');
 };
 
+var makeTestCase = function ({ inputFilename, expectedOutputFileName }) {
+  return function (test) {
+    test.equal(amdToEs6(readFile(inputFilename), {beautify: true}), expectedOutputFileName)
+    test.done()
+  }        
+}
+
 var makeTest = function (name) {
+  var baseTestName = 'test ' + name.replace(/-/g, ' ')
+  var expectedOutputFileName = readFile(name.replace(/-arrow$/, '') + '-expected')
 
-    var baseTestName = 'test ' + name.replace(/-/g, ' ');
-    var expectedOutputFileName = readFile(name.replace(/-arrow$/, '') + '-expected');
-
-    var makeTestCase = function (inputFilename) {
-        return function (test) {
-            test.equal(amdToEs6(readFile(inputFilename), {beautify: true}), expectedOutputFileName);
-            test.done();
-        };        
-    };
-
-    exports[baseTestName] = makeTestCase(name);
-    exports[baseTestName + ' (using arrow function)'] = makeTestCase(name + '-arrow');
-
+  exports[baseTestName] = makeTestCase({
+    inputFilename: name,
+    expectedOutputFileName,
+  })
+  exports[baseTestName + ' (using arrow function)'] = makeTestCase({
+    inputFilename: `${name}-arrow`,
+    expectedOutputFileName,
+  })
 };
+
 makeTest('define-with-deps');
 makeTest('define-no-deps');
 makeTest('require-with-deps');
@@ -28,6 +33,9 @@ makeTest('require-no-deps');
 makeTest('inline-sync-requires');
 makeTest('preserve-quotes');
 makeTest('use-strict');
+
+// steelseries tests
+//exports['environmentLoader'] = makeTestCase()
 
 var makeErrorCaseTest = function (name, message) {
 

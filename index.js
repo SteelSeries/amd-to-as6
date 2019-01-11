@@ -13,126 +13,126 @@ module.exports = convert;
  */
 function convert (source, options) {
 
-    options = options || {};
+  options = options || {};
 
-    var dependenciesMap = {};
-    var syncRequires = [];
-    var requiresWithSideEffects = [];
-    var mainCallExpression = null;
+  var dependenciesMap = {};
+  var syncRequires = [];
+  var requiresWithSideEffects = [];
+  var mainCallExpression = null;
 
-    var result = falafel(source, {
-        parser: acorn,
-        plugins: {jsx: true},
-        ecmaVersion: 6
-    }, function (node) {
-        if (isNamedDefine(node)) {
-            throw new Error('Found a named define - this is not supported.');
-        }
-
-        if (isDefineUsingIdentifier(node)) {
-            throw new Error('Found a define using a variable as the callback - this is not supported.');
-        }
-
-        if (isModuleDefinition(node)) {
-
-            if (mainCallExpression) {
-                throw new Error('Found multiple module definitions in one file.');
-            }
-
-            mainCallExpression = node;
-        }
-
-        else if (isSyncRequire(node)) {
-            syncRequires.push(node);
-        }
-
-        else if (isRequireWithNoCallback(node)) {
-            requiresWithSideEffects.push(node);
-        }
-
-        else if (isRequireWithDynamicModuleName(node)) {
-            throw new Error('Dynamic module names are not supported.');
-        }
-
-        if (isUseStrict(node)) {
-          node.parent.update('');
-        }
-
-    });
-
-    // no module definition found - return source untouched
-    if (!mainCallExpression) {
-        return source;
+  var result = falafel(source, {
+    parser: acorn,
+    plugins: {jsx: true},
+    ecmaVersion: 6
+  }, function (node) {
+    if (isNamedDefine(node)) {
+      throw new Error('Found a named define - this is not supported.');
     }
 
-    var moduleDeps = mainCallExpression.arguments.length > 1 ? mainCallExpression.arguments[0] : null;
-    var moduleFunc = mainCallExpression.arguments[mainCallExpression.arguments.length > 1 ? 1 : 0];
-    var hasDeps = moduleDeps && moduleDeps.elements.length > 0;
-
-    if (hasDeps) {
-
-        var modulePaths = moduleDeps.elements.map(function (node) {
-            return node.raw;
-        });
-
-        var importNames = moduleFunc.params.map(function (param) {
-            return param.name;
-        });
-
-        extend(dependenciesMap, modulePaths.reduce(function (obj, path, index) {
-            obj[path] = importNames[index] || null;
-            return obj;
-        }, {}));
+    if (isDefineUsingIdentifier(node)) {
+      throw new Error('Found a define using a variable as the callback - this is not supported.');
     }
 
-    syncRequires.forEach(function (node) {
-        var moduleName = node.arguments[0].raw;
+    if (isModuleDefinition(node)) {
 
-        // if no import name assigned then create one
-        if (!dependenciesMap[moduleName]) {
-            dependenciesMap[moduleName] = makeImportName(node.arguments[0].value);
-        }
+      if (mainCallExpression) {
+        throw new Error('Found multiple module definitions in one file.');
+      }
 
-        // replace with the import name
-        node.update(dependenciesMap[moduleName]);
-    });
-
-    requiresWithSideEffects.forEach(function (node) {
-
-        // get the module names
-        var moduleNames = node.arguments[0].elements.map(function (node) {
-            return node.value;
-        });
-
-        // make sure these modules are imported
-        moduleNames.forEach(function (moduleName) {
-            if (!dependenciesMap.hasOwnProperty(moduleName)) {
-                dependenciesMap[moduleName] = null;
-            }
-        });
-
-        // remove node
-        node.parent.update('');
-    });
-
-    // start with import statements
-    var moduleCode = getImportStatements(dependenciesMap);
-
-    // add modules code
-    moduleCode += getModuleCode(moduleFunc);
-
-    // fix indentation
-    if (options.beautify) {
-        moduleCode = beautify(moduleCode, { indent_size: options.indent });
-
-        // jsbeautify doesn't understand es6 module syntax yet
-        moduleCode = moduleCode.replace(/export[\s\S]default[\s\S]/, 'export default ');
+      mainCallExpression = node;
     }
 
-    // update the node with the new es6 code
-    mainCallExpression.parent.update(moduleCode);
+    else if (isSyncRequire(node)) {
+      syncRequires.push(node);
+    }
 
-    return result.toString();
+    else if (isRequireWithNoCallback(node)) {
+      requiresWithSideEffects.push(node);
+    }
+
+    else if (isRequireWithDynamicModuleName(node)) {
+      throw new Error('Dynamic module names are not supported.');
+    }
+
+    if (isUseStrict(node)) {
+      node.parent.update('');
+    }
+
+  });
+
+  // no module definition found - return source untouched
+  if (!mainCallExpression) {
+    return source;
+  }
+
+  var moduleDeps = mainCallExpression.arguments.length > 1 ? mainCallExpression.arguments[0] : null;
+  var moduleFunc = mainCallExpression.arguments[mainCallExpression.arguments.length > 1 ? 1 : 0];
+  var hasDeps = moduleDeps && moduleDeps.elements.length > 0;
+
+  if (hasDeps) {
+
+    var modulePaths = moduleDeps.elements.map(function (node) {
+      return node.raw;
+    });
+
+    var importNames = moduleFunc.params.map(function (param) {
+      return param.name;
+    });
+
+    extend(dependenciesMap, modulePaths.reduce(function (obj, path, index) {
+      obj[path] = importNames[index] || null;
+      return obj;
+    }, {}));
+  }
+
+  syncRequires.forEach(function (node) {
+    var moduleName = node.arguments[0].raw;
+
+    // if no import name assigned then create one
+    if (!dependenciesMap[moduleName]) {
+      dependenciesMap[moduleName] = makeImportName(node.arguments[0].value);
+    }
+
+    // replace with the import name
+    node.update(dependenciesMap[moduleName]);
+  });
+
+  requiresWithSideEffects.forEach(function (node) {
+
+    // get the module names
+    var moduleNames = node.arguments[0].elements.map(function (node) {
+      return node.value;
+    });
+
+    // make sure these modules are imported
+    moduleNames.forEach(function (moduleName) {
+      if (!dependenciesMap.hasOwnProperty(moduleName)) {
+        dependenciesMap[moduleName] = null;
+      }
+    });
+
+    // remove node
+    node.parent.update('');
+  });
+
+  // start with import statements
+  var moduleCode = getImportStatements(dependenciesMap);
+
+  // add modules code
+  moduleCode += getModuleCode(moduleFunc);
+
+  // fix indentation
+  if (options.beautify) {
+    moduleCode = beautify(moduleCode, { indent_size: options.indent });
+
+    // jsbeautify doesn't understand es6 module syntax yet
+    moduleCode = moduleCode.replace(/export[\s\S]default[\s\S]/, 'export default ');
+  }
+
+  // update the node with the new es6 code
+  mainCallExpression.parent.update(moduleCode);
+
+  return result.toString();
 }
 
 /**
@@ -142,19 +142,19 @@ function convert (source, options) {
  * @returns {string}
  */
 function getImportStatements (dependencies) {
-    var statements = [];
+  var statements = [];
 
-    for (var key in dependencies) {
+  for (var key in dependencies) {
 
-        if (!dependencies[key]) {
-            statements.push('import ' + key + ';');
-        }
-        else {
-            statements.push('import ' + dependencies[key] + ' from ' + key + ';');
-        }
+    if (!dependencies[key]) {
+      statements.push('import ' + key + ';');
     }
+    else {
+      statements.push('import ' + dependencies[key] + ' from ' + key + ';');
+    }
+  }
 
-    return statements.join(os.EOL);
+  return statements.join(os.EOL);
 }
 
 /**
@@ -162,11 +162,11 @@ function getImportStatements (dependencies) {
  * @param {object} functionExpression
  */
 function updateReturnStatement (functionExpression) {
-    functionExpression.body.body.forEach(function (node) {
-        if (node.type === 'ReturnStatement') {
-            node.update(node.source().replace('return ', 'export default '));
-        }
-    });
+  functionExpression.body.body.forEach(function (node) {
+    if (node.type === 'ReturnStatement') {
+      node.update(node.source().replace('return ', 'export default '));
+    }
+  });
 }
 
 /**
@@ -176,15 +176,15 @@ function updateReturnStatement (functionExpression) {
  */
 function getModuleCode (moduleFuncNode) {
 
-    updateReturnStatement(moduleFuncNode);
+  updateReturnStatement(moduleFuncNode);
 
-    var moduleCode = moduleFuncNode.body.source();
+  var moduleCode = moduleFuncNode.body.source();
 
-    // strip '{' and '}' from beginning and end
-    moduleCode = moduleCode.substring(1);
-    moduleCode = moduleCode.substring(0, moduleCode.length - 1);
+  // strip '{' and '}' from beginning and end
+  moduleCode = moduleCode.substring(1);
+  moduleCode = moduleCode.substring(0, moduleCode.length - 1);
 
-    return moduleCode;
+  return moduleCode;
 }
 
 /**
@@ -193,9 +193,9 @@ function getModuleCode (moduleFuncNode) {
  * @returns {array}
  */
 function getArgumentsTypes (callExpression) {
-    return callExpression.arguments.map(function (arg) {
-        return arg.type;
-    });
+  return callExpression.arguments.map(function (arg) {
+    return arg.type;
+  });
 }
 
 /**
@@ -204,7 +204,7 @@ function getArgumentsTypes (callExpression) {
  * @returns {boolean}
  */
 function isRequireOrDefine (node) {
-    return isRequire(node) || isDefine(node);
+  return isRequire(node) || isDefine(node);
 }
 
 /**
@@ -213,7 +213,7 @@ function isRequireOrDefine (node) {
  * @returns {boolean}
  */
 function isRequire (node) {
-    return node.type === 'CallExpression' && node.callee.name === 'require';
+  return node.type === 'CallExpression' && node.callee.name === 'require';
 }
 
 /**
@@ -222,7 +222,7 @@ function isRequire (node) {
  * @returns {boolean}
  */
 function isDefine (node) {
-    return node.type === 'CallExpression' && node.callee.name === 'define';
+  return node.type === 'CallExpression' && node.callee.name === 'define';
 }
 
 /**
@@ -233,17 +233,17 @@ function isDefine (node) {
  */
 function arrayEquals (arr1, arr2) {
 
-    if (arr1.length !== arr2.length) {
-        return false;
-    }
+  if (arr1.length !== arr2.length) {
+    return false;
+  }
 
-    for (var i = 0; i < arr1.length; i++) {
-        if (arr1[i] !== arr2[i]) {
-            return false;
-        }
+  for (var i = 0; i < arr1.length; i++) {
+    if (arr1[i] !== arr2[i]) {
+      return false;
     }
+  }
 
-    return true;
+  return true;
 }
 
 /**
@@ -252,8 +252,8 @@ function arrayEquals (arr1, arr2) {
  * @returns {boolean}
  */
 function isSyncRequire (node) {
-    return isRequire(node) &&
-           arrayEquals(getArgumentsTypes(node), ['Literal']);
+  return isRequire(node) &&
+    arrayEquals(getArgumentsTypes(node), ['Literal']);
 }
 
 /**
@@ -262,11 +262,11 @@ function isSyncRequire (node) {
  * @returns {boolean}
  */
 function isRequireWithDynamicModuleName(node) {
-    if (!isRequire(node)) {
-        return false;
-    }
-    var argTypes = getArgumentsTypes(node);
-    return argTypes.length === 1 && argTypes[argTypes.length - 1] !== 'Identifier';
+  if (!isRequire(node)) {
+    return false;
+  }
+  var argTypes = getArgumentsTypes(node);
+  return argTypes.length === 1 && argTypes[argTypes.length - 1] !== 'Identifier';
 }
 
 /**
@@ -275,9 +275,9 @@ function isRequireWithDynamicModuleName(node) {
  * @param {object} source
  */
 function extend (target, source) {
-    for (var key in source) {
-        target[key] = source[key];
-    }
+  for (var key in source) {
+    target[key] = source[key];
+  }
 }
 
 /**
@@ -287,36 +287,36 @@ function extend (target, source) {
  */
 function isModuleDefinition (node) {
 
-    if (!isRequireOrDefine(node)) {
-        return false;
-    }
+  if (!isRequireOrDefine(node)) {
+    return false;
+  }
 
-    var argTypes = getArgumentsTypes(node);
+  var argTypes = getArgumentsTypes(node);
 
-    // eg. require(['a', 'b'])
-    if (arrayEquals(argTypes, ['ArrayExpression'])) {
-        return true;
-    }
+  // eg. require(['a', 'b'])
+  if (arrayEquals(argTypes, ['ArrayExpression'])) {
+    return true;
+  }
 
-    // eg. require(['a', 'b'], function () {})
-    if (arrayEquals(argTypes, ['ArrayExpression', 'FunctionExpression'])) {
-        return true;
-    }
+  // eg. require(['a', 'b'], function () {})
+  if (arrayEquals(argTypes, ['ArrayExpression', 'FunctionExpression'])) {
+    return true;
+  }
 
-    // eg. require(['a', 'b'], () => {})
-    if (arrayEquals(argTypes, ['ArrayExpression', 'ArrowFunctionExpression'])) {
-        return true;
-    }
+  // eg. require(['a', 'b'], () => {})
+  if (arrayEquals(argTypes, ['ArrayExpression', 'ArrowFunctionExpression'])) {
+    return true;
+  }
 
-    // eg. require(function () {}) or define(function () {})
-    if (arrayEquals(argTypes, ['FunctionExpression'])) {
-        return true;
-    }
+  // eg. require(function () {}) or define(function () {})
+  if (arrayEquals(argTypes, ['FunctionExpression'])) {
+    return true;
+  }
 
-    // eg. require(() => {}) or define(() => {})
-    if (arrayEquals(argTypes, ['ArrowFunctionExpression'])) {
-        return true;
-    }
+  // eg. require(() => {}) or define(() => {})
+  if (arrayEquals(argTypes, ['ArrowFunctionExpression'])) {
+    return true;
+  }
 }
 
 /**
@@ -325,7 +325,7 @@ function isModuleDefinition (node) {
  * @returns {boolean}
  */
 function isRequireWithNoCallback (node) {
-    return isRequire(node) && arrayEquals(getArgumentsTypes(node), ['ArrayExpression']);
+  return isRequire(node) && arrayEquals(getArgumentsTypes(node), ['ArrayExpression']);
 }
 
 /**
@@ -334,7 +334,7 @@ function isRequireWithNoCallback (node) {
  * @returns {boolean}
  */
 function isNamedDefine (node) {
-    return isDefine(node) && getArgumentsTypes(node)[0] === 'Literal';
+  return isDefine(node) && getArgumentsTypes(node)[0] === 'Literal';
 }
 
 /**
@@ -343,11 +343,11 @@ function isNamedDefine (node) {
  * @returns {boolean}
  */
 function isDefineUsingIdentifier(node) {
-    if (!isDefine(node)) {
-        return false;
-    }
-    var argTypes = getArgumentsTypes(node);
-    return argTypes[argTypes.length - 1] === 'Identifier';
+  if (!isDefine(node)) {
+    return false;
+  }
+  var argTypes = getArgumentsTypes(node);
+  return argTypes[argTypes.length - 1] === 'Identifier';
 }
 
 /**
@@ -356,7 +356,7 @@ function isDefineUsingIdentifier(node) {
  * @returns {string}
  */
 function makeImportName (moduleName) {
-    return '$__' + moduleName.replace(/[^a-zA-Z]/g, '_');
+  return '$__' + moduleName.replace(/[^a-zA-Z]/g, '_');
 }
 
 /**
@@ -365,5 +365,5 @@ function makeImportName (moduleName) {
  * @returns {boolean}
  */
 function isUseStrict (node) {
-    return node.type === 'Literal' && node.value === 'use strict';
+  return node.type === 'Literal' && node.value === 'use strict';
 }

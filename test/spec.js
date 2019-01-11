@@ -35,7 +35,10 @@ makeTest('preserve-quotes');
 makeTest('use-strict');
 
 // steelseries tests
-//exports['environmentLoader'] = makeTestCase()
+exports['environmentLoader'] = makeTestCase({
+  inputFilename: 'steelseries/environmentLoader',
+  expectedOutputFileName: 'steelseries/environmentLoader-expected',
+})
 
 var makeErrorCaseTest = function (name, message) {
 

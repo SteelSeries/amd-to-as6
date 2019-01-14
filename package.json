@@ -20,9 +20,10 @@
     "test": "test"
   },
   "dependencies": {
-    "acorn-jsx": "^2.0.0",
+    "acorn-jsx": "^5.0.1",
+    "acorn": "^6.0.5",
     "commander": "^2.4.0",
-    "falafel": "~1.2.0",
+    "falafel": "git+https://github.com/SteelSeries/node-falafel.git#7062deed42040d2617b633fa6117d7f1065d8854",
     "glob": "^4.0.6",
     "js-beautify": "~1.5.1",
     "mkdirp": "^0.5.0"

@@ -80,6 +80,7 @@ inputFiles.forEach(function (srcFile) {
         });
     }
     catch (e) {
+      console.log(e.stack)
         console.error('Unable to compile ' + filePath + '.\n  Error:  ' + e.message + '\n');
         return;
     }

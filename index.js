@@ -162,11 +162,13 @@ function getImportStatements (dependencies) {
  * @param {object} functionExpression
  */
 function updateReturnStatement (functionExpression) {
-  functionExpression.body.body.forEach(function (node) {
-    if (node.type === 'ReturnStatement') {
-      node.update(node.source().replace('return ', 'export default '));
-    }
-  });
+  if(functionExpression.body.body) {
+    functionExpression.body.body.forEach(function (node) {
+      if (node.type === 'ReturnStatement') {
+        node.update(node.source().replace('return ', 'export default '));
+      }
+    });
+  }
 }
 
 /**

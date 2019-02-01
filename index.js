@@ -169,6 +169,9 @@ function updateReturnStatement (functionExpression) {
       }
     });
   }
+  if (functionExpression.type === 'ArrowFunctionExpression' && functionExpression.body.type === 'ObjectExpression') {
+    functionExpression.body.update(' export default ' + functionExpression.body.source() + ' ')
+  }
 }
 
 /**
